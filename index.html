@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestore Smart Working</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f9fafb; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 24px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        h1 { color: #1f2937; font-size: 28px; font-weight: bold; }
+        .btn { background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        .btn:hover { background: #1d4ed8; }
+        .btn:disabled { background: #9ca3af; cursor: not-allowed; }
+        .btn-success { background: #16a34a; } .btn-success:hover { background: #15803d; }
+        .btn-danger { background: #dc2626; } .btn-danger:hover { background: #b91c1c; }
+        .btn-gray { background: #6b7280; } .btn-gray:hover { background: #4b5563; }
+        .btn-purple { background: #8b5cf6; } .btn-purple:hover { background: #7c3aed; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { padding: 20px; border-radius: 8px; }
+        .stat-pending { background: #fef3c7; color: #92400e; }
+        .stat-approved { background: #d1fae5; color: #065f46; }
+        .stat-auto { background: #dbeafe; color: #1e40af; }
+        .stat-vacation { background: #f3f4f6; color: #374151; }
+        .stat-number { font-size: 32px; font-weight: bold; margin-top: 8px; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 8px; font-weight: 500; color: #374151; }
+        select, input, textarea { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+        select:focus, input:focus, textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .request-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+        .request-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+        .request-name { font-size: 18px; font-weight: 600; color: #1f2937; }
+        .request-date { color: #6b7280; font-size: 14px; }
+        .request-time { color: #9ca3af; font-size: 12px; }
+        .request-actions { display: flex; gap: 8px; }
+        .alert { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-top: 12px; }
+        .alert-title { font-weight: 600; color: #991b1b; margin-bottom: 8px; }
+        .alert-text { color: #7f1d1d; font-size: 14px; }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-approved { background: #d1fae5; color: #065f46; }
+        .status-auto { background: #dbeafe; color: #1e40af; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-vacation { background: #e0e7ff; color: #4338ca; }
+        .hidden { display: none; }
+        .section-title { font-size: 20px; font-weight: 600; color: #1f2937; margin-bottom: 16px; }
+        .pending-title { color: #92400e; }
+        .tabs { display: flex; border-bottom: 2px solid #e5e7eb; margin-bottom: 20px; }
+        .tab { padding: 12px 24px; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 500; color: #6b7280; transition: all 0.2s; }
+        .tab.active { color: #2563eb; border-bottom-color: #2563eb; background: #f8fafc; }
+        .tab:hover { color: #374151; background: #f9fafb; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .vacation-preview { background: #fef7ff; border: 1px solid #d8b4fe; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+        .vacation-range { font-weight: 500; color: #7c3aed; margin-bottom: 4px; }
+        .vacation-days { font-size: 12px; color: #6b46c1; }
+        .setup-warning { background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+        .sync-status { background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 14px; color: #0c4a6e; }
+        @media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } .stats { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <script>
+        // ===== CONFIGURAZIONE - MODIFICA QUI IL TUO URL =====
+        var SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxV23MFgw2uqLqaQoBnaZ4AEtl4Pnkxl69DxDqJx-fXD_3YJ4n-VE9hcgmXccGDiISCEQ/exec';
+        
+        // ===== VARIABILI GLOBALI =====
+        var allRequests = [];
+        var currentUser = null;
+        var overrideMode = false;
+        var firstThursdayOverride = false;
+        var isConfigured = false;
+        var MANAGER_PASSWORD = "smart2025";
+        var conflicts = [
+            { person1: 'Filippo Bosco', person2: 'Noemi Gornati' },
+            { person1: 'Arianna Sciascia', person2: 'Martina Chiodini' },
+            { person1: 'Sara Recchimuzzi', person2: 'Carlotta Rubinato' }
+        ];
+
+        // ===== FUNZIONI API GOOGLE SHEETS =====
+        function checkConfiguration() {
+            isConfigured = SHEETS_API_URL !== 'INSERISCI_QUI_IL_TUO_URL' && SHEETS_API_URL.length > 10;
+            
+            if (isConfigured) {
+                document.getElementById('setupWarning').style.display = 'none';
+                loadDataFromSheets();
+                // Auto-refresh ogni 30 secondi
+                setInterval(loadDataFromSheets, 30000);
+            } else {
+                document.getElementById('setupWarning').style.display = 'block';
+                updateSyncStatus('❌ Sistema non configurato - Inserire URL Google Sheets');
+            }
+        }
+
+        function updateSyncStatus(message) {
+            document.getElementById('syncStatus').innerHTML = message;
+        }
+
+        async function loadDataFromSheets() {
+            if (!isConfigured) return;
+            
+            try {
+                updateSyncStatus('🔄 Caricamento dati...');
+                
+                const response = await fetch(SHEETS_API_URL);
+                const data = await response.json();
+                
+                if (data.success) {
+                    allRequests = data.requests || [];
+                    updateSyncStatus('✅ Dati aggiornati: ' + new Date().toLocaleTimeString('it-IT'));
+                    updateDisplay();
+                } else {
+                    throw new Error(data.error || 'Errore nel caricamento');
+                }
+            } catch (error) {
+                console.error('Errore caricamento:', error);
+                updateSyncStatus('❌ Errore connessione: ' + error.message);
+            }
+        }
+
+        async function saveToSheets(requestData) {
+            if (!isConfigured) {
+                alert('Sistema non configurato! Impossibile salvare.');
+                return false;
+            }
+            
+            try {
+                updateSyncStatus('💾 Salvataggio in corso...');
+                
+                const response = await fetch(SHEETS_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'addRequest',
+                        data: requestData
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateSyncStatus('✅ Salvato: ' + new Date().toLocaleTimeString('it-IT'));
+                    // Ricarica i dati dopo 1 secondo
+                    setTimeout(loadDataFromSheets, 1000);
+                    return true;
+                } else {
+                    throw new Error(result.error || 'Errore nel salvataggio');
+                }
+            } catch (error) {
+                console.error('Errore salvataggio:', error);
+                updateSyncStatus('❌ Errore salvataggio: ' + error.message);
+                alert('Errore nel salvataggio: ' + error.message);
+                return false;
+            }
+        }
+
+        async function updateRequestStatus(requestId, newStatus) {
+            if (!isConfigured) return false;
+            
+            try {
+                const response = await fetch(SHEETS_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'updateStatus',
+                        requestId: requestId,
+                        status: newStatus
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    setTimeout(loadDataFromSheets, 1000);
+                }
+                return result.success;
+            } catch (error) {
+                console.error('Errore aggiornamento:', error);
+                return false;
+            }
+        }
+
+        // ===== FUNZIONI UTILITY =====
+        function getFirstThursday(year, month) {
+            var date = new Date(year, month, 1);
+            while (date.getDay() !== 4) date.setDate(date.getDate() + 1);
+            return date.getDate();
+        }
+
+        function isFirstThursday(date) {
+            if (firstThursdayOverride) return false;
+            var d = new Date(date);
+            var firstThursday = getFirstThursday(d.getFullYear(), d.getMonth());
+            return d.getDate() === firstThursday && d.getDay() === 4;
+        }
+
+        function checkConflict(person1, person2) {
+            return conflicts.some(function(conflict) {
+                return (conflict.person1 === person1 && conflict.person2 === person2) ||
+                       (conflict.person1 === person2 && conflict.person2 === person1);
+            });
+        }
+
+        function calculateWorkDays(startDate, endDate) {
+            var workDays = 0, currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                var dayOfWeek = currentDate.getDay();
+                if (dayOfWeek >= 1 && dayOfWeek <= 5) workDays++;
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            return workDays;
+        }
+
+        function canAutoApprove(newRequest) {
+            if (overrideMode && currentUser === 'manager') return true;
+            var sameDate = allRequests.filter(function(req) {
+                return req.date === newRequest.date && req.type === 'smart' && (req.status === 'approved' || req.status === 'auto-approved');
+            });
+            if (sameDate.length >= 2) return false;
+            for (var i = 0; i < sameDate.length; i++) {
+                if (checkConflict(newRequest.name, sameDate[i].name)) return false;
+            }
+            return true;
+        }
+
+        function getSmartRequests() {
+            return allRequests.filter(function(req) { return req.type === 'smart' || !req.type; });
+        }
+
+        function getVacationRequests() {
+            return allRequests.filter(function(req) { return req.type === 'ferie' || req.type === 'permesso'; });
+        }
+
+        // ===== FUNZIONI LOGIN =====
+        function togglePasswordField() {
+            var mode = document.getElementById('userMode').value;
+            var passwordField = document.getElementById('passwordField');
+            if (mode === 'manager') {
+                passwordField.classList.remove('hidden');
+            } else {
+                passwordField.classList.add('hidden');
+            }
+        }
+
+        function login() {
+            var mode = document.getElementById('userMode').value;
+            var password = document.getElementById('managerPassword').value;
+            if (mode === 'manager' && password !== MANAGER_PASSWORD) {
+                alert('Password Team Leader non corretta!');
+                return;
+            }
+            currentUser = mode;
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            updateUIForUser();
+            checkConfiguration();
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('userMode').value = 'team';
+            document.getElementById('managerPassword').value = '';
+            document.getElementById('passwordField').classList.add('hidden');
+        }
+
+        function updateUIForUser() {
+            var isManager = currentUser === 'manager';
+            document.getElementById('currentMode').textContent = isManager ? 'Team Leader' : 'Team';
+            if (isManager) {
+                document.getElementById('managerBadge').classList.remove('hidden');
+                document.getElementById('managerControls').classList.remove('hidden');
+            } else {
+                document.getElementById('managerBadge').classList.add('hidden');
+                document.getElementById('managerControls').classList.add('hidden');
+            }
+        }
+
+        // ===== FUNZIONI SMART WORKING =====
+        function showSmartForm() {
+            document.getElementById('smartForm').classList.remove('hidden');
+            var today = new Date();
+            document.getElementById('smartDate').min = today.toISOString().split('T')[0];
+            document.getElementById('smartDate').addEventListener('change', function() {
+                var selectedDate = this.value;
+                var warning = document.getElementById('smartWarning');
+                if (selectedDate && isFirstThursday(selectedDate)) {
+                    warning.classList.remove('hidden');
+                } else {
+                    warning.classList.add('hidden');
+                }
+            });
+        }
+
+        function hideSmartForm() {
+            document.getElementById('smartForm').classList.add('hidden');
+            document.getElementById('smartName').value = '';
+            document.getElementById('smartDate').value = '';
+            document.getElementById('smartWarning').classList.add('hidden');
+        }
+
+        async function submitSmart() {
+            var name = document.getElementById('smartName').value;
+            var date = document.getElementById('smartDate').value;
+            var submitBtn = document.getElementById('submitSmartBtn');
+            
+            if (!name || !date) {
+                alert('Compila tutti i campi!');
+                return;
+            }
+            if (isFirstThursday(date) && currentUser !== 'manager') {
+                alert('Non è possibile richiedere smart working per il primo giovedì del mese!');
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Invio in corso...';
+            
+            overrideMode = document.getElementById('overrideMode') ? document.getElementById('overrideMode').checked : false;
+            var newRequest = {
+                id: Date.now(),
+                name: name,
+                type: 'smart',
+                date: date,
+                endDate: date,
+                status: canAutoApprove({ name: name, date: date }) ? 'auto-approved' : 'pending',
+                requestTime: new Date().toLocaleString('it-IT'),
+                requestedBy: currentUser,
+                notes: '',
+                hours: '',
+                workDays: ''
+            };
+            
+            var saved = await saveToSheets(newRequest);
+            
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Invia Richiesta';
+            
+            if (saved) {
+                hideSmartForm();
+                if (newRequest.status === 'auto-approved') {
+                    alert('✅ Richiesta AUTO-APPROVATA per ' + name + ' il ' + new Date(date).toLocaleDateString('it-IT') + '!');
+                } else {
+                    alert('📝 Richiesta inviata per ' + name + ' il ' + new Date(date).toLocaleDateString('it-IT') + '. In attesa di approvazione dal Team Leader.');
+                }
+            }
+        }
+
+        // ===== FUNZIONI FERIE/PERMESSI =====
+        function showVacationForm() {
+            document.getElementById('vacationForm').classList.remove('hidden');
+            var today = new Date();
+            document.getElementById('vacationStartDate').min = today.toISOString().split('T')[0];
+            document.getElementById('vacationEndDate').min = today.toISOString().split('T')[0];
+            document.getElementById('permessoDate').min = today.toISOString().split('T')[0];
+            document.getElementById('vacationStartDate').addEventListener('change', updateVacationPreview);
+            document.getElementById('vacationEndDate').addEventListener('change', updateVacationPreview);
+            document.getElementById('permessoDate').addEventListener('change', updateVacationPreview);
+            document.getElementById('permessoHours').addEventListener('change', updateVacationPreview);
+        }
+
+        function hideVacationForm() {
+            document.getElementById('vacationForm').classList.add('hidden');
+            document.getElementById('vacationName').value = '';
+            document.getElementById('vacationType').value = 'ferie';
+            document.getElementById('vacationStartDate').value = '';
+            document.getElementById('vacationEndDate').value = '';
+            document.getElementById('permessoDate').value = '';
+            document.getElementById('permessoHours').value = '';
+            document.getElementById('vacationNotes').value = '';
+            document.getElementById('vacationPreview').classList.add('hidden');
+            toggleVacationFields();
+        }
+
+        function toggleVacationFields() {
+            var type = document.getElementById('vacationType').value;
+            var ferieFields = document.getElementById('ferieFields');
+            var permessoFields = document.getElementById('permessoFields');
+            if (type === 'permesso') {
+                ferieFields.classList.add('hidden');
+                permessoFields.classList.remove('hidden');
+            } else {
+                ferieFields.classList.remove('hidden');
+                permessoFields.classList.add('hidden');
+            }
+            updateVacationPreview();
+        }
+
+        function updateVacationPreview() {
+            var type = document.getElementById('vacationType').value;
+            var preview = document.getElementById('vacationPreview');
+            var rangeText = document.getElementById('vacationRangeText');
+            var daysText = document.getElementById('vacationDaysText');
+            
+            if (type === 'permesso') {
+                var date = document.getElementById('permessoDate').value;
+                var hours = document.getElementById('permessoHours').value;
+                if (date && hours) {
+                    rangeText.textContent = 'Permesso per ' + new Date(date).toLocaleDateString('it-IT');
+                    daysText.textContent = hours + ' ore di permesso';
+                    preview.classList.remove('hidden');
+                } else {
+                    preview.classList.add('hidden');
+                }
+            } else {
+                var startDate = document.getElementById('vacationStartDate').value;
+                var endDate = document.getElementById('vacationEndDate').value;
+                if (startDate && endDate) {
+                    var start = new Date(startDate);
+                    var end = new Date(endDate);
+                    if (end >= start) {
+                        var days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+                        var workDays = calculateWorkDays(start, end);
+                        rangeText.textContent = 'Dal ' + start.toLocaleDateString('it-IT') + ' al ' + end.toLocaleDateString('it-IT');
+                        daysText.textContent = days + ' giorni totali (' + workDays + ' giorni lavorativi)';
+                        preview.classList.remove('hidden');
+                    } else {
+                        preview.classList.add('hidden');
+                    }
+                } else {
+                    preview.classList.add('hidden');
+                }
+            }
+        }
+
+        async function submitVacation() {
+            var name = document.getElementById('vacationName').value;
+            var type = document.getElementById('vacationType').value;
+            var notes = document.getElementById('vacationNotes').value;
+            var submitBtn = document.getElementById('submitVacationBtn');
+            
+            if (!name) {
+                alert('Seleziona il nome!');
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Invio in corso...';
+            
+            var newVacationRequest;
+            if (type === 'permesso') {
+                var date = document.getElementById('permessoDate').value;
+                var hours = document.getElementById('permessoHours').value;
+                if (!date || !hours) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Invia Richiesta';
+                    alert('Compila data e ore per il permesso!');
+                    return;
+                }
+                newVacationRequest = {
+                    id: Date.now(),
+                    name: name,
+                    type: type,
+                    date: date,
+                    endDate: date,
+                    status: 'pending',
+                    requestTime: new Date().toLocaleString('it-IT'),
+                    requestedBy: currentUser,
+                    notes: notes,
+                    hours: parseInt(hours),
+                    workDays: hours == 8 ? 1 : 0
+                };
+            } else {
+                var startDate = document.getElementById('vacationStartDate').value;
+                var endDate = document.getElementById('vacationEndDate').value;
+                if (!startDate || !endDate) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Invia Richiesta';
+                    alert('Compila le date di inizio e fine!');
+                    return;
+                }
+                var start = new Date(startDate);
+                var end = new Date(endDate);
+                if (end < start) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Invia Richiesta';
+                    alert('La data di fine deve essere successiva alla data di inizio!');
+                    return;
+                }
+                newVacationRequest = {
+                    id: Date.now(),
+                    name: name,
+                    type: type,
+                    date: startDate,
+                    endDate: endDate,
+                    status: 'pending',
+                    requestTime: new Date().toLocaleString('it-IT'),
+                    requestedBy: currentUser,
+                    notes: notes,
+                    hours: '',
+                    workDays: calculateWorkDays(start, end)
+                };
+            }
+            
+            var saved = await saveToSheets(newVacationRequest);
+            
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Invia Richiesta';
+            
+            if (saved) {
+                hideVacationForm();
+                if (type === 'permesso') {
+                    alert('📝 Richiesta permesso inviata per ' + name + '!\n\nData: ' + new Date(newVacationRequest.date).toLocaleDateString('it-IT') + '\nOre: ' + newVacationRequest.hours + '\n\nIn attesa di approvazione dal Team Leader.');
+                } else {
+                    alert('📝 Richiesta ' + type + ' inviata per ' + name + '!\n\nPeriodo: ' + new Date(newVacationRequest.date).toLocaleDateString('it-IT') + ' - ' + new Date(newVacationRequest.endDate).toLocaleDateString('it-IT') + '\nGiorni lavorativi: ' + newVacationRequest.workDays + '\n\nIn attesa di approvazione dal Team Leader.');
+                }
+            }
+        }
+
+        // ===== FUNZIONI APPROVAZIONE =====
+        async function approveSmart(id, name, date) {
+            var success = await updateRequestStatus(id, 'approved');
+            if (success) {
+                alert('✅ SMART WORKING APPROVATO per ' + name + '!');
+            }
+        }
+
+        async function rejectSmart(id, name, date) {
+            var success = await updateRequestStatus(id, 'rejected');
+            if (success) {
+                alert('❌ SMART WORKING RIFIUTATO per ' + name + '.');
+            }
+        }
+
+        async function approveVacation(id, name) {
+            var success = await updateRequestStatus(id, 'approved');
+            if (success) {
+                alert('✅ FERIE/PERMESSO APPROVATO per ' + name + '!');
+            }
+        }
+
+        async function rejectVacation(id, name) {
+            var success = await updateRequestStatus(id, 'rejected');
+            if (success) {
+                alert('❌ FERIE/PERMESSO RIFIUTATO per ' + name + '.');
+            }
+        }
+
+        // ===== FUNZIONI MANAGER =====
+        function overrideFirstThursday() {
+            firstThursdayOverride = !firstThursdayOverride;
+            var btn = event.target;
+            if (firstThursdayOverride) {
+                btn.textContent = 'Blocca Primo Giovedì';
+                alert('✅ Primo giovedì sbloccato!');
+            } else {
+                btn.textContent = 'Sblocca Primo Giovedì';
+                alert('❌ Primo giovedì bloccato.');
+            }
+        }
+
+        function refreshData() {
+            loadDataFromSheets();
+        }
+
+        // ===== FUNZIONI TAB =====
+        function switchPendingTab(tabType) {
+            var tabs = document.querySelectorAll('#pendingSection .tab');
+            var contents = document.querySelectorAll('#pendingSection .tab-content');
+            tabs.forEach(function(tab) { tab.classList.remove('active'); });
+            contents.forEach(function(content) { content.classList.remove('active'); });
+            event.target.classList.add('active');
+            if (tabType === 'smart') {
+                document.getElementById('smartPendingContent').classList.add('active');
+            } else {
+                document.getElementById('vacationPendingContent').classList.add('active');
+            }
+        }
+
+        function switchHistoryTab(tabType) {
+            var tabs = document.querySelectorAll('.card:last-child .tab');
+            var contents = document.querySelectorAll('.card:last-child .tab-content');
+            tabs.forEach(function(tab) { tab.classList.remove('active'); });
+            contents.forEach(function(content) { content.classList.remove('active'); });
+            event.target.classList.add('active');
+            if (tabType === 'smart') {
+                document.getElementById('smartHistoryContent').classList.add('active');
+            } else {
+                document.getElementById('vacationHistoryContent').classList.add('active');
+            }
+        }
+
+        // ===== FUNZIONI VISUALIZZAZIONE =====
+        function updateStats() {
+            var smartRequests = getSmartRequests();
+            var vacationRequests = getVacationRequests();
+            
+            var smartPending = smartRequests.filter(function(req) { return req.status === 'pending'; }).length;
+            var smartApproved = smartRequests.filter(function(req) {
+                return (req.status === 'approved' || req.status === 'auto-approved') && req.date === new Date().toISOString().split('T')[0];
+            }).length;
+            var smartAuto = smartRequests.filter(function(req) { return req.status === 'auto-approved'; }).length;
+            var vacationPending = vacationRequests.filter(function(req) { return req.status === 'pending'; }).length;
+            
+            document.getElementById('pendingCount').textContent = smartPending;
+            document.getElementById('approvedCount').textContent = smartApproved;
+            document.getElementById('autoCount').textContent = smartAuto;
+            document.getElementById('vacationPendingCount').textContent = vacationPending;
+        }
+
+        function updatePendingRequests() {
+            var smartRequests = getSmartRequests();
+            var vacationRequests = getVacationRequests();
+            var pendingSmart = smartRequests.filter(function(req) { return req.status === 'pending'; });
+            var pendingVacations = vacationRequests.filter(function(req) { return req.status === 'pending'; });
+            var smartContainer = document.getElementById('pendingSmart');
+            var vacationContainer = document.getElementById('pendingVacations');
+            var section = document.getElementById('pendingSection');
+            
+            if (pendingSmart.length === 0 && pendingVacations.length === 0) {
+                section.classList.add('hidden');
+                return;
+            }
+            section.classList.remove('hidden');
+            
+            // Smart Working
+            smartContainer.innerHTML = '';
+            if (pendingSmart.length === 0) {
+                smartContainer.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 20px;">Nessuna richiesta smart working in attesa</div>';
+            } else {
+                pendingSmart.forEach(function(request) {
+                    var approvedSameDate = smartRequests.filter(function(req) {
+                        return req.date === request.date && req.id != request.id && (req.status === 'approved' || req.status === 'auto-approved');
+                    });
+                    var hasConflicts = approvedSameDate.some(function(other) { return checkConflict(request.name, other.name); });
+                    var exceedsLimit = approvedSameDate.length >= 2;
+                    var conflictText = '';
+                    if (exceedsLimit) conflictText += '• Limite giornaliero già raggiunto (' + approvedSameDate.length + '/2)<br>';
+                    if (hasConflicts) {
+                        var conflictNames = approvedSameDate.filter(function(other) { return checkConflict(request.name, other.name); }).map(function(other) { return other.name; }).join(', ');
+                        conflictText += '• Conflitto con: ' + conflictNames;
+                    }
+                    smartContainer.innerHTML += '<div class="request-item"><div class="request-header"><div><div class="request-name">' + request.name + '</div><div class="request-date">' + new Date(request.date).toLocaleDateString('it-IT') + '</div><div class="request-time">Richiesta il: ' + request.requestTime + '</div></div><div class="request-actions"><button class="btn btn-success" onclick="approveSmart(' + request.id + ', \'' + request.name + '\', \'' + new Date(request.date).toLocaleDateString('it-IT') + '\')">✅</button><button class="btn btn-danger" onclick="rejectSmart(' + request.id + ', \'' + request.name + '\', \'' + new Date(request.date).toLocaleDateString('it-IT') + '\')">❌</button></div></div>' + (conflictText ? '<div class="alert"><div class="alert-title">⚠️ Attenzione:</div><div class="alert-text">' + conflictText + '</div></div>' : '') + '</div>';
+                });
+            }
+            
+            // Ferie/Permessi
+            vacationContainer.innerHTML = '';
+            if (pendingVacations.length === 0) {
+                vacationContainer.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 20px;">Nessuna richiesta ferie/permessi in attesa</div>';
+            } else {
+                pendingVacations.forEach(function(vacation) {
+                    var typeLabels = { ferie: '🏖️ Ferie', permesso: '⏰ Permesso', altro: '📋 Altro' };
+                    var dateInfo = '', detailInfo = '';
+                    if (vacation.type === 'permesso') {
+                        dateInfo = typeLabels[vacation.type] + ' - ' + new Date(vacation.date).toLocaleDateString('it-IT');
+                        detailInfo = vacation.hours + ' ore';
+                    } else {
+                        dateInfo = typeLabels[vacation.type] + ' - ' + new Date(vacation.date).toLocaleDateString('it-IT') + ' → ' + new Date(vacation.endDate).toLocaleDateString('it-IT');
+                        detailInfo = vacation.workDays + ' giorni lavorativi';
+                    }
+                    vacationContainer.innerHTML += '<div class="request-item"><div class="request-header"><div><div class="request-name">' + vacation.name + '</div><div class="request-date">' + dateInfo + '</div><div class="request-time">Richiesta il: ' + vacation.requestTime + ' - ' + detailInfo + '</div>' + (vacation.notes ? '<div style="font-style: italic; color: #6b7280; margin-top: 4px;">"' + vacation.notes + '"</div>' : '') + '</div><div class="request-actions"><button class="btn btn-success" onclick="approveVacation(' + vacation.id + ', \'' + vacation.name + '\')">✅</button><button class="btn btn-danger" onclick="rejectVacation(' + vacation.id + ', \'' + vacation.name + '\')">❌</button></div></div></div>';
+                });
+            }
+        }
+
+        function updateHistory() {
+            var smartRequests = getSmartRequests();
+            var vacationRequests = getVacationRequests();
+            var smartHistory = smartRequests.filter(function(req) { return req.status !== 'pending'; });
+            var vacationHistory = vacationRequests.filter(function(req) { return req.status !== 'pending'; });
+            var smartContainer = document.getElementById('smartHistory');
+            var vacationContainer = document.getElementById('vacationHistory');
+            
+            // Smart History
+            if (smartHistory.length === 0) {
+                smartContainer.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 40px;">Nessuna richiesta smart working ancora presente</div>';
+            } else {
+                smartContainer.innerHTML = '';
+                smartHistory.forEach(function(request) {
+                    var statusClass = '', statusText = '';
+                    switch(request.status) {
+                        case 'approved': statusClass = 'status-approved'; statusText = 'Approvato'; break;
+                        case 'auto-approved': statusClass = 'status-auto'; statusText = 'Auto-approvato'; break;
+                        case 'rejected': statusClass = 'status-rejected'; statusText = 'Rifiutato'; break;
+                    }
+                    smartContainer.innerHTML += '<div class="request-item"><div class="request-header"><div><div style="display: flex; align-items: center; gap: 12px;"><span class="request-name">' + request.name + '</span><span class="request-date">' + new Date(request.date).toLocaleDateString('it-IT') + '</span><span class="status-badge ' + statusClass + '">' + statusText + '</span></div></div><div class="request-time">' + request.requestTime + '</div></div></div>';
+                });
+            }
+            
+            // Vacation History
+            if (vacationHistory.length === 0) {
+                vacationContainer.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 40px;">Nessuna richiesta ferie/permessi ancora presente</div>';
+            } else {
+                vacationContainer.innerHTML = '';
+                vacationHistory.forEach(function(vacation) {
+                    var statusClass = '', statusText = '';
+                    switch(vacation.status) {
+                        case 'approved': statusClass = 'status-vacation'; statusText = 'Approvato'; break;
+                        case 'rejected': statusClass = 'status-rejected'; statusText = 'Rifiutato'; break;
+                    }
+                    var typeLabels = { ferie: '🏖️ Ferie', permesso: '⏰ Permesso', altro: '📋 Altro' };
+                    var dateInfo = '', detailInfo = '';
+                    if (vacation.type === 'permesso') {
+                        dateInfo = typeLabels[vacation.type] + ' ' + new Date(vacation.date).toLocaleDateString('it-IT');
+                        detailInfo = vacation.hours + ' ore';
+                    } else {
+                        dateInfo = typeLabels[vacation.type] + ' ' + new Date(vacation.date).toLocaleDateString('it-IT') + ' → ' + new Date(vacation.endDate).toLocaleDateString('it-IT');
+                        detailInfo = vacation.workDays + ' giorni lavorativi';
+                    }
+                    vacationContainer.innerHTML += '<div class="request-item"><div class="request-header"><div><div style="display: flex; align-items: center; gap: 12px;"><span class="request-name">' + vacation.name + '</span><span class="request-date">' + dateInfo + '</span><span class="status-badge ' + statusClass + '">' + statusText + '</span></div><div style="font-size: 12px; color: #6b7280; margin-top: 4px;">' + detailInfo + (vacation.notes ? ' - "' + vacation.notes + '"' : '') + '</div></div><div class="request-time">' + vacation.requestTime + '</div></div></div>';
+                });
+            }
+        }
+
+        function updateDisplay() {
+            updateStats();
+            updatePendingRequests();
+            updateHistory();
+        }
+
+        // ===== INIZIALIZZAZIONE =====
+        function init() {
+            updateDisplay();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+
+    <!-- Schermata di Login -->
+    <div id="loginScreen" class="container">
+        <div class="card" style="max-width: 400px; margin: 100px auto;">
+            <h1 style="text-align: center; margin-bottom: 30px;">🔐 Accesso Smart Working</h1>
+            <div class="form-group">
+                <label>Seleziona Modalità</label>
+                <select id="userMode" onchange="togglePasswordField()">
+                    <option value="team">👥 Membro del Team</option>
+                    <option value="manager">👨‍💼 Team Leader</option>
+                </select>
+            </div>
+            <div class="form-group hidden" id="passwordField">
+                <label>Password Team Leader</label>
+                <input type="password" id="managerPassword" placeholder="Inserisci la password">
+            </div>
+            <button class="btn" onclick="login()" style="width: 100%;">Accedi</button>
+        </div>
+    </div>
+
+    <div class="container hidden" id="mainApp">
+        <!-- Avviso Setup -->
+        <div class="setup-warning" id="setupWarning">
+            <h3>⚠️ CONFIGURAZIONE RICHIESTA</h3>
+            <p><strong>Il sistema non è ancora configurato con Google Sheets!</strong></p>
+            <p>Per funzionare correttamente, devi:</p>
+            <p>1. Creare un Google Sheet con le colonne specificate</p>
+            <p>2. Configurare Google Apps Script</p>
+            <p>3. Sostituire 'INSERISCI_QUI_IL_TUO_URL' con l'URL dell'API nel codice</p>
+            <p><strong>URL attuale:</strong> <code>INSERISCI_QUI_IL_TUO_URL</code></p>
+        </div>
+
+        <div class="card">
+            <div class="header">
+                <div>
+                    <h1>📅 Gestore Smart Working</h1>
+                    <div style="font-size: 14px; color: #6b7280; margin-top: 4px;">
+                        Modalità: <span id="currentMode">Team</span> 
+                        <span id="managerBadge" class="hidden" style="background: #dc2626; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px;">TEAM LEADER</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn" onclick="refreshData()">↻ Aggiorna</button>
+                    <button class="btn" onclick="showSmartForm()">Smart Working</button>
+                    <button class="btn btn-purple" onclick="showVacationForm()">Ferie/Permessi</button>
+                    <button class="btn btn-gray" onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+            <!-- Status sincronizzazione -->
+            <div class="sync-status" id="syncStatus">
+                🔄 Connessione a Google Sheets... <span id="lastSync"></span>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card stat-pending">
+                    <div>⏰ Smart in Attesa</div>
+                    <div class="stat-number" id="pendingCount">-</div>
+                </div>
+                <div class="stat-card stat-approved">
+                    <div>✅ Smart Oggi</div>
+                    <div class="stat-number" id="approvedCount">-</div>
+                </div>
+                <div class="stat-card stat-auto">
+                    <div>🤖 Auto-approvate</div>
+                    <div class="stat-number" id="autoCount">-</div>
+                </div>
+                <div class="stat-card stat-vacation">
+                    <div>🏖️ Ferie/Permessi in Attesa</div>
+                    <div class="stat-number" id="vacationPendingCount">-</div>
+                </div>
+            </div>
+
+            <!-- Controlli Team Leader -->
+            <div id="managerControls" class="hidden" style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                <h3 style="color: #dc2626; margin-bottom: 12px;">🔧 Controlli Team Leader</h3>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button class="btn btn-danger" onclick="overrideFirstThursday()">Sblocca Primo Giovedì</button>
+                </div>
+                <div style="margin-top: 12px;">
+                    <label style="display: flex; align-items: center; gap: 8px; color: #dc2626;">
+                        <input type="checkbox" id="overrideMode">
+                        <span>Modalità Override: Ignora limiti Smart Working</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Smart Working -->
+        <div class="card hidden" id="smartForm">
+            <h2 class="section-title">⚡ Nuova Richiesta Smart Working</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nome</label>
+                    <select id="smartName">
+                        <option value="">Seleziona persona</option>
+                        <option value="Noemi Gornati">Noemi Gornati</option>
+                        <option value="Carlotta Rubinato">Carlotta Rubinato</option>
+                        <option value="Arianna Sciascia">Arianna Sciascia</option>
+                        <option value="Filippo Bosco">Filippo Bosco</option>
+                        <option value="Sara Recchimuzzi">Sara Recchimuzzi</option>
+                        <option value="Martina Chiodini">Martina Chiodini</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Data</label>
+                    <input type="date" id="smartDate">
+                </div>
+            </div>
+            <div id="smartWarning" class="alert hidden">
+                <div class="alert-title">⚠️ Attenzione:</div>
+                <div class="alert-text">Il primo giovedì del mese non è disponibile per lo smart working!</div>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn" onclick="submitSmart()" id="submitSmartBtn">Invia Richiesta</button>
+                <button class="btn btn-gray" onclick="hideSmartForm()">Annulla</button>
+            </div>
+        </div>
+
+        <!-- Form Ferie/Permessi -->
+        <div class="card hidden" id="vacationForm">
+            <h2 class="section-title">🏖️ Nuova Richiesta Ferie/Permessi</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nome</label>
+                    <select id="vacationName">
+                        <option value="">Seleziona persona</option>
+                        <option value="Noemi Gornati">Noemi Gornati</option>
+                        <option value="Carlotta Rubinato">Carlotta Rubinato</option>
+                        <option value="Arianna Sciascia">Arianna Sciascia</option>
+                        <option value="Filippo Bosco">Filippo Bosco</option>
+                        <option value="Sara Recchimuzzi">Sara Recchimuzzi</option>
+                        <option value="Martina Chiodini">Martina Chiodini</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select id="vacationType" onchange="toggleVacationFields()">
+                        <option value="ferie">🏖️ Ferie</option>
+                        <option value="permesso">⏰ Permesso Orario</option>
+                        <option value="altro">📋 Altro</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Campi per Ferie -->
+            <div id="ferieFields">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data Inizio</label>
+                        <input type="date" id="vacationStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Data Fine</label>
+                        <input type="date" id="vacationEndDate">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Campi per Permessi -->
+            <div id="permessoFields" class="hidden">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data Permesso</label>
+                        <input type="date" id="permessoDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Ore</label>
+                        <select id="permessoHours">
+                            <option value="">Seleziona ore</option>
+                            <option value="1">1 ora</option>
+                            <option value="2">2 ore</option>
+                            <option value="3">3 ore</option>
+                            <option value="4">4 ore</option>
+                            <option value="5">5 ore</option>
+                            <option value="6">6 ore</option>
+                            <option value="7">7 ore</option>
+                            <option value="8">8 ore (giornata intera)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Note (opzionale)</label>
+                <textarea id="vacationNotes" rows="3" placeholder="Inserisci eventuali note..."></textarea>
+            </div>
+
+            <div id="vacationPreview" class="vacation-preview hidden">
+                <div class="vacation-range" id="vacationRangeText"></div>
+                <div class="vacation-days" id="vacationDaysText"></div>
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-purple" onclick="submitVacation()" id="submitVacationBtn">Invia Richiesta</button>
+                <button class="btn btn-gray" onclick="hideVacationForm()">Annulla</button>
+            </div>
+        </div>
+
+        <!-- Richieste in attesa -->
+        <div class="card hidden" id="pendingSection">
+            <div class="tabs">
+                <div class="tab active" onclick="switchPendingTab('smart')">⚡ Smart Working</div>
+                <div class="tab" onclick="switchPendingTab('vacation')">🏖️ Ferie/Permessi</div>
+            </div>
+
+            <div class="tab-content active" id="smartPendingContent">
+                <h2 class="section-title pending-title">Richieste Smart Working in Attesa</h2>
+                <div id="pendingSmart">
+                    <div class="loading">Caricamento richieste...</div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="vacationPendingContent">
+                <h2 class="section-title" style="color: #7c3aed;">Richieste Ferie/Permessi in Attesa</h2>
+                <div id="pendingVacations">
+                    <div class="loading">Caricamento richieste...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cronologia -->
+        <div class="card">
+            <div class="tabs">
+                <div class="tab active" onclick="switchHistoryTab('smart')">⚡ Cronologia Smart Working</div>
+                <div class="tab" onclick="switchHistoryTab('vacation')">🏖️ Cronologia Ferie/Permessi</div>
+            </div>
+
+            <div class="tab-content active" id="smartHistoryContent">
+                <div id="smartHistory">
+                    <div style="text-align: center; color: #6b7280; padding: 40px;">
+                        Caricamento cronologia...
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="vacationHistoryContent">
+                <div id="vacationHistory">
+                    <div style="text-align: center; color: #6b7280; padding: 40px;">
+                        Caricamento cronologia...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
